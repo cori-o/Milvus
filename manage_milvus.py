@@ -38,6 +38,12 @@ def main(args):
             milvus_db.delete_partition(args.collection_name, args.partition_name)
         except:
             pass
+    elif args.task_name == 'drop':
+        try:
+            assert args.collection_name != None, "삭제하고자하는 collection 이름을 지정해주세요."
+            milvus_db.delete_collection(args.collection_name)
+        except:
+            pass
     else:
         print(f'create, delete 작업이 가능합니다.')
 
@@ -46,7 +52,7 @@ if __name__ == '__main__':
     cli_parser = argparse.ArgumentParser()
     cli_parser.add_argument('--config_path', type=str, default='./config/')
     cli_parser.add_argument('--config_name', type=str, default='db_config.json')
-    cli_parser.add_argument('--collection_name', type=str, default='rule_book')
+    cli_parser.add_argument('--collection_name', type=str, default='congress')
     cli_parser.add_argument('--partition_name', type=str, default=None)
     cli_parser.add_argument('--task_name', type=str, default=None)
     cli_args = cli_parser.parse_args()
