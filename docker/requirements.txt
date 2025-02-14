@@ -1,0 +1,6 @@
+python-dotenv
+pandas 
+pymilvus
+numpy<=2.0 
+FlagEmbedding
+peft
