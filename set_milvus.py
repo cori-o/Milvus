@@ -25,9 +25,7 @@ def main(args):
     data_text_emb = milvus_db.create_field_schema('text_emb', dtype='float', is_primary=False, dim=1024)
     data_text = milvus_db.create_field_schema('text', dtype='str', is_primary=False, max_length=2048)
     data_source = milvus_db.create_field_schema('source', dtype='str', is_primary=False, max_length=200)
-    data_pageno = milvus_db.create_field_schema('page_no', dtype='int', is_primary=False)
-    data_chunksize = milvus_db.create_field_schema('tok_chunk_size', dtype='int', is_primary=False)
-    schema_field_list = [data_id, data_text_emb, data_text, data_source, data_pageno, data_chunksize]
+    schema_field_list = [data_id, data_text_emb, data_text, data_source]
 
     # create schema 
     schema = milvus_db.create_schema(schema_field_list, 'schema for Finger Rule-Book')
