@@ -17,7 +17,7 @@ def main(args):
     print(f'ip: {milvus_db.ip_addr}')
 
     milvus_db.set_env()
-    # milvus_db.create_db(db_args['db'])
+    milvus_db.create_db(db_args['db'])
     print(f'client: {milvus_db.client}')
 
     # define schema field 
