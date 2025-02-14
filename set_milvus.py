@@ -28,7 +28,7 @@ def main(args):
     schema_field_list = [data_id, data_text_emb, data_text, data_source]
 
     # create schema 
-    schema = milvus_db.create_schema(schema_field_list, 'schema for Finger Rule-Book')
+    schema = milvus_db.create_schema(schema_field_list, 'schema for ~')
 
     # create collection
     collection = milvus_db.create_collection(collection_name, schema, shards_num=2)
