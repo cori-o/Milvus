@@ -2,14 +2,13 @@ from pymilvus import MilvusClient, DataType
 from pymilvus import connections, db
 from pymilvus import Collection, CollectionSchema, FieldSchema, utility
 from pymilvus import connections
-from . import DataProcessor
-import numpy as np
 import logging
 
-class MilVus():
-    def __init__(self, args):
-        self.ip_addr = args['ip_addr'] 
-        self.port = '19530'
+class MilVus:
+    def __init__(self, db_config):
+        self.db_config = db_config 
+        self.ip_addr = db_config['ip_addr'] 
+        self.port = db_config['port']
 
     def set_env(self):
         self.client = MilvusClient(
@@ -17,8 +16,8 @@ class MilVus():
         )
         self.conn = connections.connect(
             alias="default", 
-            host=self.ip_addr, 
-            port='19530'
+            host='finger-milvus-standalone',   # self.ip_addr 
+            port=self.port
         )
 
     def _get_data_type(self, dtype):
@@ -30,18 +29,25 @@ class MilVus():
             return DataType.FLOAT_VECTOR
         return None
 
-    def get_partition_info(self, collection):
+    def get_partition_info(self, collection_name):
+        collection = Collection(collection_name)
         self.partitions = collection.partitions 
-        self.partition_names = []; self.partition_num_entities = [] 
+        self.partition_names = [] 
+        self.partition_entities_num = [] 
         for partition in self.partitions: 
+            # print(f'partition name: {partition.name} num of entitiy: {partition.num_entities}')
             self.partition_names.append(partition.name)
-            self.partition_num_entities.append(partition.num_entities)
+            self.partition_entities_num.append(partition.num_entities)
 
-    def get_collection_info(self, collection):
-        print(f'primary key of collection: {collection.primary_field}')
+    def get_collection_info(self, collection_name):
+        print(f'collection info')
+        collection = Collection(collection_name)
         print(f'schema info: {collection.schema}') 
-        # print(f'is collection empty ?: {collection.is_empty}')
+        print(f'collection name: {collection.name}')
+        print(f'is collection empty ?: {collection.is_empty}')
         print(f'num of data: {collection.num_entities}')
+        print(f'primary key of collection: {collection.primary_field}')
+        print(f'partition of collection: {collection.partition}')
         
 
 class MilvusEnvManager(MilVus):
@@ -87,9 +93,9 @@ class MilvusEnvManager(MilVus):
 
     def create_index(self, collection, field_name):
         index_params = {
-            "metric_type": "L2",    # L2: Euclidean, IP: Cosine similarity
-            "index_type": "IVF_FLAT",
-            "params": {"nlist": 1024},
+            "metric_type": f"{self.db_config['search_metric']}",
+            "index_type": f"{self.db_config['index_type']}",
+            "params": {"nlist": f"{self.db_config['index_nlist']}"},
         }   
         collection.create_index(
             field_name=field_name,
@@ -123,49 +129,23 @@ class MilvusEnvManager(MilVus):
             print(f"Error while deleting partition {partition_name} in {collection_name}: {e}")
 
 
-class DataMilVus(DataProcessor):   #  args: (DataProcessor)
-    def __init__(self, args):
-        super().__init__(args)
-        self.args = args
+class DataMilVus(MilVus):   #  args: (DataProcessor)
+    '''
+    구축된 Milvus DB에 대한 data search, insert 등 작업 수행
+    '''
+    def __init__(self, db_config):
+        super().__init__(db_config)
 
     def set_env(self):
         self.client = MilvusClient(
-            uri="http://" + self.args.ip_addr + ":19530", port=19530
+            uri="http://" + self.db_config['ip_addr'] + ":19530", port=19530
         )
         self.conn = connections.connect(
             alias="default", 
-            host=self.args.ip_addr, 
-            port='19530'
+            host=self.db_config['ip_addr'], 
+            port=self.db_config['port']
         )
-
-    def bge_milvus_embed(self, text):   
-        ''' 2.4 x ''' 
-        from pymilvus.model.hybrid import BGEM3EmbedddingFunction
-        bge_m3_ef = BGEM3EmbedddingFunction(
-            model_name='BAAI/bge-m3',
-            device='cpu',
-            use_fp16=False
-        )
-        
-        if isinstance(text, str):
-            bge_emb = bge_m3_ef.encode_queries(text)
-            print(f"embeddings (dense): {bge_emb['dense']}")
-        else:
-            bge_emb = bge_m3_ef.encode_documents(text)
-        return bge_emb
-
-    def bge_embed_data(self, text):
-        from FlagEmbedding import BGEM3FlagModel
-        model = BGEM3FlagModel('BAAI/bge-m3',  use_fp16=True)
-        if isinstance(text, str):
-            embeddings = model.encode(text, batch_size=12, max_length=8192)['dense_vecs']
-        else:       
-            embeddings = model.encode(list(text), batch_size=12, max_length=1024)['dense_vecs']   # dense_vecs, lexical weights, colbert_vecs 
-        # print(f"lexical_weights:{model.convert_id_to_token(embeddings['lexical_weights'])}")
-        # print(f'key of emb: {embeddings.keys()}')
-        embeddings = list(map(np.float32, embeddings))
-        return embeddings
-
+    
     def insert_data(self, m_data, collection_name, partition_name=None):
         collection = Collection(collection_name)
         collection.insert(m_data, partition_name)
@@ -173,46 +153,44 @@ class DataMilVus(DataProcessor):   #  args: (DataProcessor)
     def get_len_data(self, collection):
         print(collection.num_entities)
 
-    def set_search_params(self, metric_type="L2", offset=5, ignore_growing=False):
-        ''' 옵션을 주지 않는게 훨씬 더 검색 잘 함 .. !! '''
+    def set_search_params(self, query_emb, anns_field='text_emb', expr=None, limit=5, output_fields=None, consistency_level="Strong"):
         self.search_params = {
-            "metric_type": metric_type, 
-            # "offset": offset, 
-            # "ignore_growing": ignore_growing, 
-            # "params": {"nprobe": 80}
+            "data": [query_emb],
+            "anns_field": anns_field, 
+            "param": {"metric_type": self.db_config['search_metric'], "params": {"nprobe": 0}, "offset": 0},
+            "limit": limit,
+            "expr": expr, 
+            "output_fields": [output_fields],
+            "consistency_level": consistency_level
         }
     
-    def search_data(self, collection, query_emb, limit=5, anns_field='text_emb', output_fields=None, consistency_level="Strong"):
-        results = collection.search(
-                data=[query_emb], 
-                anns_field=anns_field, 
-                # the sum of `offset` in `param` and `limit` should be less than 16384.
-                param=self.search_params,
-                limit=5,
-                expr=None,
-                # set the names of the fields you want to retrieve from the search result.
-                output_fields=[output_fields],
-                consistency_level=consistency_level,
-                partition_names=['transport_expenses']
-            )
+    def search_data(self, collection, search_params):
+        results = collection.search(**search_params)
         return results
 
-    def decode_search_result(self, search_result):
-        print(f'ids: {search_result[0][0].id}')
-        print(f"entity: {search_result[0][0].entity.get('text')}") 
-        from FlagEmbedding import BGEM3FlagModel
-        model = BGEM3FlagModel('BAAI/bge-m3',  use_fp16=True)
-        # model.convert_id_to_token(search_result[0][0].entity,)
-        return search_result[0][0].entity.get('text')
+    def get_distance(self, search_result):
+        id_list = [] 
+        distance_list = [] 
+        for idx in range(len(search_result[0])):
+            id_list.append(search_result[0][idx].id)
+            distance_list.append(search_result[0][idx].distance)
+        return id_list, distance_list
 
-    def calc_emb_similarity(self, emb1, emb2, metric='L2'):
-        import numpy as np 
-        np_emb1 = np.array(emb1)
-        np_emb2 = np.array(emb2)
-        if metric == 'L2':   # Euclidean distance
-            print('calc Euclidean distance')
-            l2_distance = np.linalg.norm(np_emb1 - np_emb2)
-            return l2_distance
+    def decode_search_result(self, search_result):
+        # print(f'ids: {search_result[0][0].id}')
+        # print(f"entity: {search_result[0][0].entity.get('text')}") 
+        texts = [] 
+        ids = []
+        distances = [] 
+        for idx in range(len(search_result[0])):
+            text = search_result[0][idx].entity.get('text') 
+            id = search_result[0][idx].entity.get('id')
+            distance = search_result[0][idx].entity.get('distance')
+            texts.append(text)
+        return texts
+
+    def rerank_data(self, search_result):
+        pass 
 
 
 class MilvusMeta():
