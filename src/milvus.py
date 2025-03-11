@@ -56,11 +56,17 @@ class MilvusEnvManager(MilVus):
         self.logger = logging.getLogger(__name__)
 
     def create_db(self, db_name):
-        if not db.has_database(db_name):
-            db.create_database(db_name)
+        '''
+        Milus 2.3 이후부터는 Multi-database 기능 제거함
+        '''
+        existing_dbs = utility.list_databases()  # 존재하는 데이터베이스 목록 가져오기      
+        if db_name not in existing_dbs:
+            utility.create_database(db_name)  # 새로운 데이터베이스 생성
             self.logger.info(f'Created database: {db_name}')
         else:
             self.logger.warning(f'Database {db_name} already exists.')
+        connections.using_database(db_name)
+        self.logger.info(f'Switched to database: {db_name}')
 
     def create_collection(self, collection_name, schema, shards_num):
         collection = Collection(
