@@ -82,13 +82,20 @@ class MilvusEnvManager(MilVus):
 
     def create_field_schema(self, schema_name, dtype=None, dim=1024, max_length=200, is_primary=False):
         data_type = self._get_data_type(dtype)
-        field_schema = FieldSchema(
-            name=schema_name,
-            dtype=data_type,
-            is_primary=is_primary,
-            dim=dim, 
-            max_length=max_length
-        )
+        if data_type == DataType.JSON:
+            field_schema = FieldSchema(
+                name=schema_name,
+                dtype=data_type,
+                is_primary=is_primary
+            )
+        else:
+            field_schema = FieldSchema(
+                name=schema_name,
+                dtype=data_type,
+                is_primary=is_primary,
+                dim=dim if data_type == DataType.FLOAT_VECTOR else None,
+                max_length=max_length if data_type == DataType.VARCHAR else None
+            )
         return field_schema
 
     def create_schema(self, field_schema_list, desc, enable_dynamic_field=True):
