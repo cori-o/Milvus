@@ -166,6 +166,17 @@ class DataMilVus(MilVus):   #  args: (DataProcessor)
     def __init__(self, db_config):
         super().__init__(db_config)
 
+    def delete_data(self, filter, collection_name, filter_type='varchar'):
+        '''
+        ids: int  - 3  
+        expr: str  - "doc_id == 'doc_test'"  
+        '''
+        collection = Collection(collection_name)
+        if filter_type == 'int':        
+            collection.delete(ids=[filter])
+        elif filter_type == 'varchar':
+            collection.delete(expr=filter)
+            
     def insert_data(self, m_data, collection_name, partition_name=None):
         collection = Collection(collection_name)
         collection.insert(m_data, partition_name)
