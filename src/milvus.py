@@ -6,13 +6,11 @@ import logging
 
 class MilVus:
     _connected = False 
-
     def __init__(self, db_config):
         self.db_config = db_config 
         self.ip_addr = db_config['ip_addr'] 
         self.port = db_config['port']
         self.set_env()
-
         if not MilVus._connected:
             self.set_env()
             MilVus._connected = True  # 연결 상태 업데이트
