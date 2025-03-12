@@ -5,15 +5,30 @@ from pymilvus import connections
 import logging
 
 class MilVus:
+    _connected = False 
+
     def __init__(self, db_config):
         self.db_config = db_config 
         self.ip_addr = db_config['ip_addr'] 
         self.port = db_config['port']
+        self.set_env()
+
+        if not MilVus._connected:
+            self.set_env()
+            MilVus._connected = True  # 연결 상태 업데이트
 
     def set_env(self):
         self.client = MilvusClient(
-            uri="http://" + self.ip_addr + ":19530", port=19530
+            uri="http://" + self.ip_addr + ":19530", port=self.port
         )
+        try:
+            conn = connections.get_connection("default")
+            if conn is not None and conn.connected():
+                print("Milvus already connected. Skipping reconnection.")
+                return
+        except Exception:
+            pass  # 연결이 없으면 새로운 연결 생성
+
         self.conn = connections.connect(
             alias="default", 
             host='finger-milvus-standalone',   # self.ip_addr 
@@ -32,25 +47,26 @@ class MilVus:
         else:
             raise ValueError(f"Unsupported data type: {dtype}")
 
+    def get_list_collection(self):
+        return utility.list_collections()
+
     def get_partition_info(self, collection_name):
         collection = Collection(collection_name)
         self.partitions = collection.partitions 
         self.partition_names = [] 
         self.partition_entities_num = [] 
         for partition in self.partitions: 
-            # print(f'partition name: {partition.name} num of entitiy: {partition.num_entities}')
             self.partition_names.append(partition.name)
             self.partition_entities_num.append(partition.num_entities)
 
     def get_collection_info(self, collection_name):
-        print(f'collection info')
         collection = Collection(collection_name)
-        print(f'schema info: {collection.schema}') 
-        print(f'collection name: {collection.name}')
-        print(f'is collection empty ?: {collection.is_empty}')
-        print(f'num of data: {collection.num_entities}')
-        print(f'primary key of collection: {collection.primary_field}')
-        print(f'partition of collection: {collection.partition}')
+        self.collection_schema = collection.schema 
+        self.collection_name = collection.name 
+        self.collection_is_empty = collection.is_empty 
+        self.collection_primary_key = collection.primary_field
+        self.collection_partitions = collection.partition
+        self.num_entities = collection.num_entities
         
 
 class MilvusEnvManager(MilVus):
