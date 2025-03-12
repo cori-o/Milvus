@@ -153,16 +153,6 @@ class DataMilVus(MilVus):   #  args: (DataProcessor)
     def __init__(self, db_config):
         super().__init__(db_config)
 
-    def set_env(self):
-        self.client = MilvusClient(
-            uri="http://" + self.db_config['ip_addr'] + ":19530", port=19530
-        )
-        self.conn = connections.connect(
-            alias="default", 
-            host=self.db_config['ip_addr'], 
-            port=self.db_config['port']
-        )
-    
     def insert_data(self, m_data, collection_name, partition_name=None):
         collection = Collection(collection_name)
         collection.insert(m_data, partition_name)
