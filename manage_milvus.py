@@ -33,7 +33,7 @@ def main(args):
         except:
             pass 
     elif args.task_name == 'delete':
-        try: 
+        try:
             assert args.partition_name != None, "삭제하고자하는 partition 이름을 지정해주세요."
             milvus_db.delete_partition(args.collection_name, args.partition_name)
         except:
