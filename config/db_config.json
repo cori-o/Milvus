@@ -1,8 +1,6 @@
 {   
-    "id_search_metric": "FLAT", 
-    "id_index_type": "L2",
-    "emb_search_metric": "COSINE",
+    "search_metric": "COSINE",
     "index_nlist": 65536, 
-    "emb_index_type": "IVF_FLAT",
+    "index_type": "IVF_FLAT",
     "port": "19530"
 }
